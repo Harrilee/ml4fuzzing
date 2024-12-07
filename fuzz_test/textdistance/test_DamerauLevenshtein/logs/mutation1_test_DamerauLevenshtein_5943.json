@@ -1,0 +1,50 @@
+{
+    "id": 5943,
+    "suite": {
+        "name": "test_DamerauLevenshtein",
+        "description": "Test the DamerauLevenshtein algorithm. Mutation 1: edit_based.py line 278, i-2 -> i-1",
+        "branch": "mutation1"
+    },
+    "input": [
+        "",
+        "addcddc"
+    ],
+    "output": 7,
+    "exec_trace": [
+        "11 | call | run | ers/harry/Desktop/CMU/course/18668_data_science_for_software_engineering/final-project/fuzz_test/textdistance/test_DamerauLevenshtein/test.py",
+        "12 | line | run | ers/harry/Desktop/CMU/course/18668_data_science_for_software_engineering/final-project/fuzz_test/textdistance/test_DamerauLevenshtein/test.py",
+        "13 | line | run | ers/harry/Desktop/CMU/course/18668_data_science_for_software_engineering/final-project/fuzz_test/textdistance/test_DamerauLevenshtein/test.py",
+        "160 | call | __init__ | /textdistance/textdistance/algorithms/edit_based.py",
+        "167 | line | __init__ | /textdistance/textdistance/algorithms/edit_based.py",
+        "168 | line | __init__ | /textdistance/textdistance/algorithms/edit_based.py",
+        "169 | line | __init__ | /textdistance/textdistance/algorithms/edit_based.py",
+        "170 | line | __init__ | /textdistance/textdistance/algorithms/edit_based.py",
+        "170 | return | __init__ | /textdistance/textdistance/algorithms/edit_based.py",
+        "283 | call | __call__ | /textdistance/textdistance/algorithms/edit_based.py",
+        "284 | line | __call__ | /textdistance/textdistance/algorithms/edit_based.py",
+        "117 | call | _get_sequences | /textdistance/textdistance/algorithms/base.py",
+        "125 | line | _get_sequences | /textdistance/textdistance/algorithms/base.py",
+        "128 | line | _get_sequences | /textdistance/textdistance/algorithms/base.py",
+        "129 | line | _get_sequences | /textdistance/textdistance/algorithms/base.py",
+        "129 | return | _get_sequences | /textdistance/textdistance/algorithms/base.py",
+        "286 | line | __call__ | /textdistance/textdistance/algorithms/edit_based.py",
+        "85 | call | quick_answer | /textdistance/textdistance/algorithms/base.py",
+        "92 | line | quick_answer | /textdistance/textdistance/algorithms/base.py",
+        "94 | line | quick_answer | /textdistance/textdistance/algorithms/base.py",
+        "96 | line | quick_answer | /textdistance/textdistance/algorithms/base.py",
+        "103 | call | _ident | /textdistance/textdistance/algorithms/base.py",
+        "107 | line | _ident | /textdistance/textdistance/algorithms/base.py",
+        "109 | line | _ident | /textdistance/textdistance/algorithms/base.py",
+        "109 | return | _ident | /textdistance/textdistance/algorithms/base.py",
+        "98 | line | quick_answer | /textdistance/textdistance/algorithms/base.py",
+        "99 | line | quick_answer | /textdistance/textdistance/algorithms/base.py",
+        "26 | call | maximum | /textdistance/textdistance/algorithms/base.py",
+        "30 | line | maximum | /textdistance/textdistance/algorithms/base.py",
+        "30 | return | maximum | /textdistance/textdistance/algorithms/base.py",
+        "99 | return | quick_answer | /textdistance/textdistance/algorithms/base.py",
+        "287 | line | __call__ | /textdistance/textdistance/algorithms/edit_based.py",
+        "288 | line | __call__ | /textdistance/textdistance/algorithms/edit_based.py",
+        "288 | return | __call__ | /textdistance/textdistance/algorithms/edit_based.py",
+        "13 | return | run | ers/harry/Desktop/CMU/course/18668_data_science_for_software_engineering/final-project/fuzz_test/textdistance/test_DamerauLevenshtein/test.py"
+    ]
+}
