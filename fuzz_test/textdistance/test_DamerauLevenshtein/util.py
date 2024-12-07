@@ -16,12 +16,12 @@ def analyze_test_results(logs_dir="logs"):
     all_files = [f for f in os.listdir(logs_dir) if os.path.isfile(os.path.join(logs_dir, f))]
 
     # Separate mutation and original files by suffix
-    mutation_files = [f for f in all_files if f.startswith("mutation3_")]
+    mutation_files = [f for f in all_files if f.startswith("mutation2_")]
     original_files = [f for f in all_files if f.startswith("original_")]
 
     # Process each mutation file and find its matching original file
     for mutation_file in tqdm(mutation_files, desc="Analyzing logs"):
-        suffix = mutation_file[len("mutation3_"):]
+        suffix = mutation_file[len("mutation2_"):]
         original_file = f"original_{suffix}"
 
         if original_file not in original_files:
@@ -38,8 +38,14 @@ def analyze_test_results(logs_dir="logs"):
         # Compare the `output` field
         if mutation_data.get("output") == original_data.get("output"):
             results_summary["passing"] += 1
+            mutation_data["verdict"] = "pass"
         else:
             results_summary["failing"] += 1
+            mutation_data["verdict"] = "fail"
+
+        # Save the updated mutation data
+        with open(os.path.join(logs_dir, mutation_file), "w") as m_file:
+            json.dump(mutation_data, m_file, indent=4)
 
     # Print results summary
     print("\nResults Summary:")

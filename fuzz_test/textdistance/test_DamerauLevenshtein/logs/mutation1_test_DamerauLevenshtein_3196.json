@@ -46,5 +46,6 @@
         "288 | line | __call__ | /textdistance/textdistance/algorithms/edit_based.py",
         "288 | return | __call__ | /textdistance/textdistance/algorithms/edit_based.py",
         "13 | return | run | ers/harry/Desktop/CMU/course/18668_data_science_for_software_engineering/final-project/fuzz_test/textdistance/test_DamerauLevenshtein/test.py"
-    ]
+    ],
+    "verdict": "pass"
 }
