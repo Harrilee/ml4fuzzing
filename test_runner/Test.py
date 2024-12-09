@@ -7,7 +7,7 @@ import concurrent.futures
 
 class TestCase:
 
-    IGNORE_TRACE_FILENAME = ["<frozen importlib._bootstrap", "Python3."]
+    IGNORE_TRACE_FILENAME = ["<frozen importlib._bootstrap", "Python3.",  "Python/", "/final-project/fuzz_test/"]
     ROOT_DIR = "/sut"
 
     def __init__(self, _id, _input, test_suite):
@@ -61,8 +61,9 @@ class TestCase:
 
     def test(self):
         self.setup_exec_trace_tracker()
-        self.output = self.run()
+        self.output, noErr = self.run()
         sys.settrace(None)
+        return noErr
 
 
 class TestSuite:
@@ -79,13 +80,17 @@ class TestSuite:
 
     def test(self):
         print("Running test cases...")
+        errCnt = 0
         for test_case in tqdm(self.test_cases):
             try:
-                test_case.test()
+                noErr = test_case.test()
+                if not noErr:
+                    errCnt += 1
             except Exception as e:
                 test_case.error = str(e)
                 print("Error in test case", test_case.id, test_case.input)
             self.logger.log(test_case, f"{self.branch_name}_{self.test_name}_{test_case.id}.json")
+        print(f"Total errors: {errCnt}")
 
     def __load_test_cases(self):
         df = pd.read_csv(self.test_input_file)
