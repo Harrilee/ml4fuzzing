@@ -1,0 +1,22 @@
+repo: https://github.0com/life4/textdistance
+test size: 10000
+
+[mutation 1]
+mutator: edit_based.py line 278, i-2 -> i-1
+failed: 137
+
+[mutation 2]
+mutator: edit_based.py line 265, d[i, j - 1] + 1 -> d[i, j - 1]
+failed: 4742
+
+[mutation 3]
+mutator: edit_based.py line 274-275 deleted.
+failed: 2047
+
+[mutation 4]
+mutator: edit_based.py line 276, min -> max
+failed: 284
+
+[mutation 5]
+mutator: edit_based.py line 274, delete not
+failed: 2061
