@@ -25,6 +25,7 @@ class ExecTraceTransformer(BaseEstimator, TransformerMixin):
             X = X.iloc[:, 0]
         return X.apply(lambda traces: ' '.join(traces) if isinstance(traces, list) else '')
 
+
 # %%
 # Define hyperparameters
 param_grid = [
@@ -32,6 +33,7 @@ param_grid = [
         'classifier': [LogisticRegression(max_iter=5000)],
     },
 ]
+
 
 # %%
 # Load dataset
@@ -46,11 +48,13 @@ def get_logs(logs_dir, mutation_index):
     print(f"Number of logs: {len(logs)}")
     return logs
 
+
 # Combine logs into DataFrame
 def combine_logs(logs):
     combined_logs = [log for log in logs if isinstance(log, dict)]
     df = pd.DataFrame(combined_logs)
     return df
+
 
 # Build pipeline for model
 def build_pipeline(classifier, feature_selector=SelectKBest(score_func=chi2, k=5)):
@@ -59,19 +63,20 @@ def build_pipeline(classifier, feature_selector=SelectKBest(score_func=chi2, k=5
         ('exec_transform', ExecTraceTransformer()),
         ('vectorizer', CountVectorizer())
     ])
-    
+
     preprocessor = ColumnTransformer([
         ('exec_trace', exec_trace_pipeline, 'exec_trace'),
     ], remainder='drop')
-    
+
     # Pipeline for each model
     pipeline = Pipeline([
         ('preprocessor', preprocessor),
         ('feature_selection', feature_selector),
         ('classifier', classifier)
     ])
-    
+
     return pipeline
+
 
 # Train model, hyperparameter tuning with GridSearchCV
 def train_model(X_train, y_train, pipeline, param_grid):
@@ -83,9 +88,10 @@ def train_model(X_train, y_train, pipeline, param_grid):
         n_jobs=-1,
         verbose=2
     )
-    
+
     grid_search.fit(X_train, y_train)
     return grid_search
+
 
 # Evaluate model
 def evaluate_model(model, X_test, y_test):
@@ -96,6 +102,7 @@ def evaluate_model(model, X_test, y_test):
         'accuracy': accuracy,
         'classification_report': report
     }
+
 
 def save_model(model, filename):
     joblib.dump(model, filename)
@@ -110,68 +117,69 @@ class MutationModelTrainer:
         self.param_grid = param_grid
         self.model_save_dir = model_save_dir
         self.results = {}
-        
+
         os.makedirs(self.model_save_dir, exist_ok=True)
-    
+
     def process_mutation(self, logs_subdir, mutation_index):
         logs_dir = os.path.join(self.base_dir, logs_subdir)
         print(f"\nProcessing Logs Subdir: '{logs_subdir}', Mutation Index: {mutation_index}")
-        
+
         project_name = logs_subdir.split('/')[-4]
         print(f"Project Name: {project_name}")
-        
+
         logs = get_logs(logs_dir, mutation_index)
 
         if not logs:
             print(f"No logs found for mutation index {mutation_index} in '{logs_subdir}'. Skipping.")
             return
-        
+
         df = combine_logs(logs)
-        
+
         df = df.dropna(subset=['exec_trace', 'verdict'])
-        
+
         y = df['verdict'].apply(lambda x: 1 if x.lower() == 'pass' else 0)
-        
+
         X = df[['exec_trace']]
-        
+
         # Split the data
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=0.2, random_state=42, stratify=y
         )
-        
+
         # Build the pipeline
         placeholder_classifier = LogisticRegression()
         pipeline = build_pipeline(classifier=placeholder_classifier)
-        
+
         # Train the model
         grid_search = train_model(X_train, y_train, pipeline, self.param_grid)
-        
+
         # Evaluate the best model
         evaluation = evaluate_model(grid_search.best_estimator_, X_test, y_test)
-        
+
         # Save the best model     
-        model_filename = os.path.join(self.model_save_dir, f"{project_name}_best_pipeline_mutation_{mutation_index}.pkl")
+        model_filename = os.path.join(self.model_save_dir,
+                                      f"{project_name}_best_pipeline_mutation_{mutation_index}.pkl")
         save_model(grid_search.best_estimator_, model_filename)
-        
+
         self.results[mutation_index] = {
             'best_params': grid_search.best_params_,
             'best_score': grid_search.best_score_,
             'test_accuracy': evaluation['accuracy'],
             'classification_report': evaluation['classification_report']
         }
-        
+
         print("Best Parameters:")
         print(grid_search.best_params_)
         print(f"Best Cross-Validation Score: {grid_search.best_score_:.4f}")
         print(f"Test Set Accuracy: {evaluation['accuracy']:.4f}")
         print("Classification Report:")
         print(evaluation['classification_report'])
-    
+
     def train_all(self):
         for logs_subdir, mutation_indices in self.logs_subdirs_to_mutations.items():
             for mutation_index in mutation_indices:
                 self.process_mutation(logs_subdir, mutation_index)
-    
+
     def get_results(self):
         return self.results
 
@@ -208,9 +216,3 @@ for mutation, res in results.items():
     print(f"Test Accuracy: {res['test_accuracy']:.4f}")
     print("Classification Report:")
     print(res['classification_report'])
-
-
-# %%
-
-
-
