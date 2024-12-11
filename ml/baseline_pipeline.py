@@ -5,7 +5,6 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.linear_model import LogisticRegression
-from sklearn.svm import SVC
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
@@ -13,7 +12,6 @@ from sklearn.metrics import classification_report, accuracy_score, f1_score
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.feature_selection import SelectKBest, chi2
 import joblib
-import warnings
 
 # %%
 # Transform the trace data into a string to be used in the CountVectorizer
@@ -227,7 +225,7 @@ base_dir = "../fuzz_test"
 # Subdirectory path: [mutation indices]
 logs_subdirs_to_train = {
     "textdistance/test_DamerauLevenshtein/logs": [2],
-    "dateutil/test_date_parse/logs": [3],
+    # "dateutil/test_date_parse/logs": [3],
 }
 
 model_save_dir = "models"
@@ -238,7 +236,7 @@ trainer = MutationModelTrainer(
     param_grid=param_grid,
     model_save_dir=model_save_dir,
     num_repeats=5,
-    sample_size=100,
+    sample_size=500,
     seed_start=42
 )
 
@@ -258,3 +256,147 @@ for mutation, res in results.items():
     for idx, report in enumerate(res['classification_reports'], 1):
         print(f"\n--- Classification Report for Repetition {idx} ---")
         print(report)
+
+'''
+=== Mutation 2 ===
+
+-- Sampling Method: cluster --
+Accuracies: [0.7527777777777778]
+Average Accuracy: 0.7528
+F1 Scores: [0.7194553019795739]
+Average F1 Score: 0.7195
+Best Parameters per Repetition:
+ Repetition 1: {'classifier__C': 10, 'classifier__penalty': 'l2', 'classifier__solver': 'lbfgs'}
+Best CV Scores per Repetition:
+ Repetition 1: 0.7600
+Classification Reports:
+
+--- Repetition 1 ---
+              precision    recall  f1-score   support
+
+           0       0.73      0.83      0.78      4732
+           1       0.78      0.67      0.72      4268
+
+    accuracy                           0.75      9000
+   macro avg       0.76      0.75      0.75      9000
+weighted avg       0.76      0.75      0.75      9000
+
+
+-- Sampling Method: edit_distance --
+Accuracies: [0.7573333333333333]
+Average Accuracy: 0.7573
+F1 Scores: [0.6815398075240595]
+Average F1 Score: 0.6815
+Best Parameters per Repetition:
+ Repetition 1: {'classifier__C': 10, 'classifier__penalty': 'l2', 'classifier__solver': 'lbfgs'}
+Best CV Scores per Repetition:
+ Repetition 1: 0.7920
+Classification Reports:
+
+--- Repetition 1 ---
+              precision    recall  f1-score   support
+
+           0       0.70      0.95      0.80      4732
+           1       0.90      0.55      0.68      4268
+
+    accuracy                           0.76      9000
+   macro avg       0.80      0.75      0.74      9000
+weighted avg       0.80      0.76      0.75      9000
+
+
+-- Sampling Method: random --
+Accuracies: [0.7414444444444445, 0.7507777777777778, 0.7537777777777778, 0.7587777777777778, 0.7492222222222222]
+Average Accuracy: 0.7508
+F1 Scores: [0.7133883483187584, 0.7054497701904137, 0.7172748150038275, 0.7152786885245902, 0.7181216435618833]
+Average F1 Score: 0.7139
+Best Parameters per Repetition:
+ Repetition 1: {'classifier__C': 1, 'classifier__penalty': 'l2', 'classifier__solver': 'lbfgs'}
+ Repetition 2: {'classifier__C': 1, 'classifier__penalty': 'l2', 'classifier__solver': 'lbfgs'}
+ Repetition 3: {'classifier__C': 10, 'classifier__penalty': 'l2', 'classifier__solver': 'lbfgs'}
+ Repetition 4: {'classifier__C': 10, 'classifier__penalty': 'l2', 'classifier__solver': 'lbfgs'}
+ Repetition 5: {'classifier__C': 1, 'classifier__penalty': 'l2', 'classifier__solver': 'lbfgs'}
+Best CV Scores per Repetition:
+ Repetition 1: 0.7460
+ Repetition 2: 0.7620
+ Repetition 3: 0.7460
+ Repetition 4: 0.7320
+ Repetition 5: 0.7440
+Classification Reports:
+
+--- Repetition 1 ---
+              precision    recall  f1-score   support
+
+           0       0.73      0.80      0.76      4732
+           1       0.75      0.68      0.71      4268
+
+    accuracy                           0.74      9000
+   macro avg       0.74      0.74      0.74      9000
+weighted avg       0.74      0.74      0.74      9000
+
+
+--- Repetition 2 ---
+              precision    recall  f1-score   support
+
+           0       0.72      0.86      0.78      4732
+           1       0.80      0.63      0.71      4268
+
+    accuracy                           0.75      9000
+   macro avg       0.76      0.74      0.74      9000
+weighted avg       0.76      0.75      0.75      9000
+
+
+--- Repetition 3 ---
+              precision    recall  f1-score   support
+
+           0       0.73      0.84      0.78      4732
+           1       0.79      0.66      0.72      4268
+
+    accuracy                           0.75      9000
+   macro avg       0.76      0.75      0.75      9000
+weighted avg       0.76      0.75      0.75      9000
+
+
+--- Repetition 4 ---
+              precision    recall  f1-score   support
+
+           0       0.73      0.87      0.79      4732
+           1       0.81      0.64      0.72      4268
+
+    accuracy                           0.76      9000
+   macro avg       0.77      0.75      0.75      9000
+weighted avg       0.77      0.76      0.75      9000
+
+
+--- Repetition 5 ---
+              precision    recall  f1-score   support
+
+           0       0.74      0.82      0.77      4732
+           1       0.77      0.67      0.72      4268
+
+    accuracy                           0.75      9000
+   macro avg       0.75      0.75      0.75      9000
+weighted avg       0.75      0.75      0.75      9000
+
+
+-- Sampling Method: stratified --
+Accuracies: [0.7662222222222222]
+Average Accuracy: 0.7662
+F1 Scores: [0.7224274406332454]
+Average F1 Score: 0.7224
+Best Parameters per Repetition:
+ Repetition 1: {'classifier__C': 10, 'classifier__penalty': 'l2', 'classifier__solver': 'lbfgs'}
+Best CV Scores per Repetition:
+ Repetition 1: 0.7420
+Classification Reports:
+
+--- Repetition 1 ---
+              precision    recall  f1-score   support
+
+           0       0.73      0.88      0.80      4732
+           1       0.83      0.64      0.72      4268
+
+    accuracy                           0.77      9000
+   macro avg       0.78      0.76      0.76      9000
+weighted avg       0.78      0.77      0.76      9000
+
+'''
