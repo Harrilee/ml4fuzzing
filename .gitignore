@@ -3,3 +3,5 @@
 logs
 venv
 __MACOSX
+env
+__pycache__
