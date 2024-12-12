@@ -2,5 +2,7 @@
 .DS_Store
 logs
 venv
+.pytest_cache
 __pycache__
 __MACOSX
+
