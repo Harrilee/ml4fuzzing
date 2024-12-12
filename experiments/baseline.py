@@ -42,20 +42,25 @@ pipeline_builder = PipelineBuilder()
 # Initialize trainer
 print("\nInitializing experiment...")
 
-res = defaultdict(list)
+res_f1 = defaultdict(list)
+res_accuracy = defaultdict(list)
 
-for i in range(3):
+for i in range(1):
     pipeline = pipeline_builder\
         .set_data_picker(RandomDataPicker(n_samples=50, random_state=42+i))\
-        .set_feature_transformer(WordCountTransformer())\
+        .set_feature_transformer(BooleanTraceTransformer())\
         .set_classifier(MultinomialNB())\
         .build()
     trainer = Trainer(pipeline=pipeline, test_size=0.3, random_state=42)
     for X, y, project_name, mutation_index in datasets:
         print(f"\nProcessing dataset: {project_name}")
-        res[project_name].append(np.round(trainer.train(X, y)['f1_score'], 4))
+        res_f1[project_name].append(np.round(trainer.train(X, y)['f1_score'], 4))
+        res_accuracy[project_name].append(np.round(trainer.train(X, y)['accuracy'], 4))
 
-for project_name, results in res.items():
-    print(f"\nResults for {project_name}: {np.round(sum(results)/len(results), 4)}")
+for project_name, results in res_f1.items():
+    print(f"F1 Score for {project_name}: {np.round(sum(results)/len(results), 4)}")
+
+for project_name, results in res_accuracy.items():
+    print(f"Accuracy for {project_name}: {np.round(sum(results)/len(results), 4)}")
     
     
