@@ -19,6 +19,7 @@ from textdistance import DamerauLevenshtein, Jaccard, Cosine
 # Disable warnings for cleaner output
 warnings.filterwarnings('ignore')
 
+
 class DataSelectionMethod(Enum):
     RANDOM = 'random'
     STRATIFIED = 'stratified'
@@ -27,6 +28,7 @@ class DataSelectionMethod(Enum):
     JACCARD_DISTANCE = 'jaccard_distance'
     EMBEDDING_EUCLIDEAN_DISTANCE = 'embedding_euclidean_distance'
     COSINE_SIMILARITY = 'cosine_similarity'
+
 
 # Custom transformer to convert exec_trace lists to strings
 class ExecTraceTransformer(BaseEstimator, TransformerMixin):
@@ -37,6 +39,7 @@ class ExecTraceTransformer(BaseEstimator, TransformerMixin):
         if isinstance(X, pd.DataFrame):
             X = X['exec_trace']  # Explicitly select 'exec_trace'
         return X.apply(lambda traces: ' '.join(traces) if isinstance(traces, list) else '')
+
 
 # Function to load logs
 def get_logs(logs_dir, mutation_index):
@@ -52,11 +55,13 @@ def get_logs(logs_dir, mutation_index):
     print(f"Loaded {len(logs)} log files.")
     return logs
 
+
 # Combine log data into a DataFrame
 def combine_logs(logs):
     combined_logs = [log for log in logs if isinstance(log, dict)]
     df = pd.DataFrame(combined_logs)
     return df
+
 
 # Define data selection methods
 def random_sampling(X, y, sample_size, random_state=42):
@@ -67,6 +72,7 @@ def random_sampling(X, y, sample_size, random_state=42):
         stratify=None
     )
     return X_sample, y_sample
+
 
 def stratified_sampling(X, y, sample_size, random_state=42):
     X_sample, _, y_sample, _ = train_test_split(
@@ -91,31 +97,31 @@ def cluster_based_sampling(X, y, sample_size, n_clusters=10, random_state=42):
 
     df = X.copy()
     df['cluster'] = clusters
-    df['y'] = y.values
 
     samples_per_cluster = max(1, sample_size // n_clusters)
 
-    # Perform sampling without resetting the index
+    # Perform sampling within each cluster
     sampled_df = df.groupby('cluster').apply(
         lambda x: x.sample(n=min(len(x), samples_per_cluster), random_state=random_state)
     )
 
-    # sampled_df now has a MultiIndex (cluster, original_index)
-    # To get the original indices, use `level=1`
-    sampled_indices = sampled_df.index.get_level_values(1)
+    # Flatten MultiIndex and preserve original indices
+    sampled_df = sampled_df.reset_index(level=0, drop=True)
 
-    # Drop the sampled indices from df to get the remaining DataFrame
-    remaining_df = df.drop(sampled_indices)
-
-    # Calculate how many additional samples are needed
+    # Calculate remaining samples to reach sample_size
     current_sample_size = len(sampled_df)
     if current_sample_size < sample_size:
+        remaining_indices = list(set(X.index) - set(sampled_df.index))
         additional_samples = sample_size - current_sample_size
-        additional_df = remaining_df.sample(n=additional_samples, random_state=random_state)
+        additional_df = X.loc[remaining_indices].sample(n=additional_samples, random_state=random_state)
         sampled_df = pd.concat([sampled_df, additional_df], ignore_index=False)
 
+    # Align sampled_df indices with y
+    sampled_indices = sampled_df.index
+
     # Return the sampled exec_trace and corresponding y
-    return sampled_df[['exec_trace']], sampled_df['y']
+    return sampled_df[['exec_trace']], y.loc[sampled_indices]
+
 
 def edit_distance_sampling(X, y, sample_size, random_state=42):
     X_inputs = X['input']
@@ -133,7 +139,7 @@ def edit_distance_sampling(X, y, sample_size, random_state=42):
     distance_matrix = np.zeros((len(X_inputs), len(X_inputs)))
     for i in range(len(X_inputs)):
         for j in range(i + 1, len(X_inputs)):
-            print(f"\rPrecomputing edit distance: {i+1}/{len(X_inputs)}", end='')
+            print(f"\rPrecomputing edit distance: {i + 1}/{len(X_inputs)}", end='')
             distance = DamerauLevenshtein().distance(str(X_inputs.iloc[i]), str(X_inputs.iloc[j]))
             distance_matrix[i, j] = distance
             distance_matrix[j, i] = distance
@@ -154,10 +160,12 @@ def edit_distance_sampling(X, y, sample_size, random_state=42):
 
     return sampled_df[['exec_trace']], sampled_y
 
+
 def jaccard_distance_sampling(X, y, sample_size, random_state=42):
     X_input = X['input']
 
-    token_sets = X_input.apply(lambda trace: set(' '.join(trace).split()) if isinstance(trace, list) else set(trace.split()))
+    token_sets = X_input.apply(
+        lambda trace: set(' '.join(trace).split()) if isinstance(trace, list) else set(trace.split()))
 
     selected_indices = []
     remaining_indices = list(range(len(token_sets)))
@@ -172,7 +180,7 @@ def jaccard_distance_sampling(X, y, sample_size, random_state=42):
     distance_matrix = np.zeros((len(token_sets), len(token_sets)))
     for i in range(len(token_sets)):
         for j in range(i + 1, len(token_sets)):
-            print(f"\rPrecomputing Jaccard distance: {i+1}/{len(token_sets)}", end='')
+            print(f"\rPrecomputing Jaccard distance: {i + 1}/{len(token_sets)}", end='')
             intersection = token_sets.iloc[i].intersection(token_sets.iloc[j])
             union = token_sets.iloc[i].union(token_sets.iloc[j])
             distance = 1 - (len(intersection) / len(union)) if union else 0
@@ -192,6 +200,7 @@ def jaccard_distance_sampling(X, y, sample_size, random_state=42):
     sampled_y = y.iloc[selected_indices].copy()
 
     return sampled_df[['exec_trace']], sampled_y
+
 
 def embedding_euclidean_distance_sampling(X, y, sample_size, random_state=42):
     X_input = X['input'].apply(lambda traces: ' '.join(traces) if isinstance(traces, list) else '')
@@ -225,6 +234,7 @@ def embedding_euclidean_distance_sampling(X, y, sample_size, random_state=42):
     sampled_y = y.iloc[selected_indices].copy()
 
     return sampled_df[['exec_trace']], sampled_y
+
 
 def cosine_similarity_sampling(X, y, sample_size, random_state=42):
     X_input = X['input'].apply(lambda traces: ' '.join(traces) if isinstance(traces, list) else '')
@@ -261,10 +271,72 @@ def cosine_similarity_sampling(X, y, sample_size, random_state=42):
 
     return sampled_df[['exec_trace']], sampled_y
 
+
+# Simple Active Learner Class
+class SimpleActiveLearner:
+    def __init__(self, pipeline, X_pool, y_pool, X_test, y_test, initial_size=100, query_size=10, iterations=10, random_state=42):
+        self.pipeline = pipeline
+        self.X_pool = X_pool.copy()
+        self.y_pool = y_pool.copy()
+        self.X_test = X_test.copy()
+        self.y_test = y_test.copy()
+        self.initial_size = initial_size
+        self.query_size = query_size
+        self.iterations = iterations
+        self.random_state = random_state
+        self.labeled_X = None
+        self.labeled_y = None
+        self.results = []
+
+    def initialize(self):
+        np.random.seed(self.random_state)
+        self.X_pool = self.X_pool.reset_index(drop=True)
+        self.y_pool = self.y_pool.reset_index(drop=True)
+        initial_indices = np.random.choice(range(len(self.X_pool)), size=self.initial_size, replace=False)
+        self.labeled_X = self.X_pool.iloc[initial_indices]
+        self.labeled_y = self.y_pool.iloc[initial_indices]
+        self.X_pool = self.X_pool.drop(initial_indices).reset_index(drop=True)
+        self.y_pool = self.y_pool.drop(initial_indices).reset_index(drop=True)
+
+    def uncertainty_sampling(self):
+        self.pipeline.fit(self.labeled_X['exec_trace'], self.labeled_y)
+        probs = self.pipeline.predict_proba(self.X_pool['exec_trace'])
+        uncertainty = 1 - np.max(probs, axis=1)
+        query_indices = uncertainty.argsort()[-self.query_size:]
+        return query_indices
+
+    def run(self):
+        self.initialize()
+        for it in range(1, self.iterations + 1):
+            print(f"\n--- Active Learning Iteration {it}/{self.iterations} ---")
+            if len(self.X_pool) == 0:
+                print("No more samples in the pool.")
+                break
+            query_indices = self.uncertainty_sampling()
+            queried_X = self.X_pool.iloc[query_indices]
+            queried_y = self.y_pool.iloc[query_indices]
+            self.labeled_X = pd.concat([self.labeled_X, queried_X], ignore_index=True)
+            self.labeled_y = pd.concat([self.labeled_y, queried_y], ignore_index=True)
+            self.X_pool = self.X_pool.drop(query_indices).reset_index(drop=True)
+            self.y_pool = self.y_pool.drop(query_indices).reset_index(drop=True)
+            self.pipeline.fit(self.labeled_X['exec_trace'], self.labeled_y)
+            y_pred = self.pipeline.predict(self.X_test['exec_trace'])
+            accuracy = accuracy_score(self.y_test, y_pred)
+            f1 = f1_score(self.y_test, y_pred)
+            report = classification_report(self.y_test, y_pred)
+            self.results.append({'accuracy': accuracy, 'f1_score': f1, 'report': report})
+            print(f"Accuracy after iteration {it}: {accuracy:.4f}")
+            print(f"F1 Score after iteration {it}: {f1:.4f}")
+            print("Classification Report:")
+            print(report)
+        return self.results
+
+
 # Main training class
 class MutationModelTrainer:
     def __init__(self, base_dir, logs_subdirs_to_mutations, param_grid, model_save_dir="models",
-                 num_repeats=5, sample_size=500, seed_start=42):
+                 num_repeats=5, sample_size=500, seed_start=42, active_learning_iterations=10,
+                 initial_training_size=100, query_size=10):
         self.base_dir = base_dir
         self.logs_subdirs_to_mutations = logs_subdirs_to_mutations
         self.param_grid = param_grid
@@ -272,6 +344,9 @@ class MutationModelTrainer:
         self.num_repeats = num_repeats
         self.sample_size = sample_size
         self.seed_start = seed_start
+        self.active_learning_iterations = active_learning_iterations
+        self.initial_training_size = initial_training_size
+        self.query_size = query_size
         self.results = {}
 
         os.makedirs(self.model_save_dir, exist_ok=True)
@@ -281,7 +356,8 @@ class MutationModelTrainer:
         print(f"\nProcessing Logs Subdir: '{logs_subdir}', Mutation Index: {mutation_index}")
 
         # Extract project name, assuming it's part of the directory structure
-        project_name = logs_subdir.split(os.sep)[-3] if len(logs_subdir.split(os.sep)) >= 3 else logs_subdir.split('/')[-3]
+        project_name = logs_subdir.split(os.sep)[-3] if len(logs_subdir.split(os.sep)) >= 3 else logs_subdir.split('/')[
+            -3]
         print(f"Project Name: {project_name}")
 
         logs = get_logs(logs_dir, mutation_index)
@@ -310,7 +386,8 @@ class MutationModelTrainer:
         elif method == DataSelectionMethod.STRATIFIED.value:
             return stratified_sampling(X[['exec_trace']], y, self.sample_size, random_state)
         elif method == DataSelectionMethod.CLUSTER.value:
-            return cluster_based_sampling(X[['exec_trace']], y, self.sample_size, n_clusters=10, random_state=random_state)
+            return cluster_based_sampling(X[['exec_trace']], y, self.sample_size, n_clusters=10,
+                                          random_state=random_state)
         elif method == DataSelectionMethod.EDIT_DISTANCE.value:
             return edit_distance_sampling(X, y, self.sample_size, random_state)
         elif method == DataSelectionMethod.JACCARD_DISTANCE.value:
@@ -354,10 +431,47 @@ class MutationModelTrainer:
 
         return accuracy, f1, report, grid_search.best_params_, grid_search.best_score_
 
+    def active_learning_training(self, X_pool, y_pool, X_test, y_test, project_name, mutation_index):
+        print("\n=== Starting Active Learning ===")
+
+        # Initialize the Active Learner with a small labeled dataset
+        learner = SimpleActiveLearner(
+            pipeline=Pipeline([
+                ('exec_transform', ExecTraceTransformer()),
+                ('vectorizer', CountVectorizer()),
+                ('feature_selection', SelectKBest(score_func=chi2, k=5)),
+                ('classifier', LogisticRegression(max_iter=1000, random_state=self.seed_start))
+            ]),
+            X_pool=X_pool,
+            y_pool=y_pool,
+            X_test=X_test,
+            y_test=y_test,
+            initial_size=self.initial_training_size,
+            query_size=self.query_size,
+            iterations=self.active_learning_iterations,
+            random_state=self.seed_start
+        )
+
+        active_learning_results = learner.run()
+
+        # Store Active Learning results
+        if mutation_index not in self.results:
+            self.results[mutation_index] = {}
+        self.results[mutation_index]['active_learning'] = {
+            'accuracies': [res['accuracy'] for res in active_learning_results],
+            'average_accuracy': np.mean([res['accuracy'] for res in active_learning_results]),
+            'f1_scores': [res['f1_score'] for res in active_learning_results],
+            'average_f1_score': np.mean([res['f1_score'] for res in active_learning_results]),
+            'classification_reports': [res['report'] for res in active_learning_results]
+        }
+
     def process_mutation(self, logs_subdir, mutation_index, methods):
-        X_train_full, X_test, y_train_full, y_test, project_name = self.load_and_prepare_data(logs_subdir, mutation_index)
+        X_train_full, X_test, y_train_full, y_test, project_name = self.load_and_prepare_data(logs_subdir,
+                                                                                              mutation_index)
         if X_train_full is None:
             return
+
+
 
         for method in methods:
             print(f"\n=== Using Data Selection Method: {method} ===")
@@ -368,8 +482,8 @@ class MutationModelTrainer:
             best_cv_scores = []
 
             repetitions = self.num_repeats if method in [DataSelectionMethod.RANDOM.value,
-                                                       DataSelectionMethod.CLUSTER.value,
-                                                       DataSelectionMethod.STRATIFIED.value] else 1
+                                                         DataSelectionMethod.CLUSTER.value,
+                                                         DataSelectionMethod.STRATIFIED.value] else 1
 
             for i in range(1, repetitions + 1):
                 random_state = self.seed_start + i
@@ -410,12 +524,16 @@ class MutationModelTrainer:
                 'best_cv_scores': best_cv_scores
             }
 
+        # Active Learning Process
+        self.active_learning_training(X_train_full, y_train_full, X_test, y_test, project_name, mutation_index)
+
     def train_all(self):
         # Define data selection methods to compare
         methods = [
+            DataSelectionMethod.CLUSTER.value,
             DataSelectionMethod.RANDOM.value,
             DataSelectionMethod.STRATIFIED.value,
-            DataSelectionMethod.CLUSTER.value,
+
             DataSelectionMethod.EDIT_DISTANCE.value,
             DataSelectionMethod.COSINE_SIMILARITY.value,
             DataSelectionMethod.JACCARD_DISTANCE.value,
@@ -428,6 +546,7 @@ class MutationModelTrainer:
 
     def get_results(self):
         return self.results
+
 
 # Define GridSearch parameters
 param_grid = {
@@ -447,7 +566,7 @@ logs_subdirs_to_train = {
 
 model_save_dir = "models"
 
-# Instantiate trainer
+# Instantiate trainer with Active Learning parameters
 trainer = MutationModelTrainer(
     base_dir=base_dir,
     logs_subdirs_to_mutations=logs_subdirs_to_train,
@@ -455,10 +574,13 @@ trainer = MutationModelTrainer(
     model_save_dir=model_save_dir,
     num_repeats=5,
     sample_size=100,
-    seed_start=42
+    seed_start=42,
+    active_learning_iterations=10,  # Number of Active Learning iterations
+    initial_training_size=100,  # Initial labeled samples
+    query_size=10  # Samples queried per iteration
 )
 
-# Train all models
+# Train all models, including Active Learning
 trainer.train_all()
 
 # Retrieve and display results
@@ -467,6 +589,8 @@ results = trainer.get_results()
 for mutation, methods in results.items():
     print(f"\n=== Mutation {mutation} ===")
     for method, metrics in methods.items():
+        if method == 'active_learning':
+            continue  # We'll handle Active Learning separately
         print(f"\n-- Sampling Method: {method} --")
         print(f"Accuracies: {metrics['accuracies']}")
         print(f"Average Accuracy: {metrics['average_accuracy']:.4f}")
@@ -483,316 +607,15 @@ for mutation, methods in results.items():
             print(f"\n--- Repetition {i} ---")
             print(report)
 
-'''
-=== Mutation 2 ===
-
--- Sampling Method: random --
-Accuracies: [0.6847777777777778, 0.7575555555555555, 0.7536666666666667, 0.7501111111111111, 0.7633333333333333]
-Average Accuracy: 0.7419
-F1 Scores: [0.7161580790395198, 0.6857718894009217, 0.7109140696309819, 0.6846164633291264, 0.7264320575391728]
-Average F1 Score: 0.7048
-Best Parameters per Repetition:
- Repetition 1: {'classifier__C': 1, 'classifier__penalty': 'l2', 'classifier__solver': 'lbfgs'}
- Repetition 2: {'classifier__C': 10, 'classifier__penalty': 'l2', 'classifier__solver': 'lbfgs'}
- Repetition 3: {'classifier__C': 10, 'classifier__penalty': 'l2', 'classifier__solver': 'lbfgs'}
- Repetition 4: {'classifier__C': 10, 'classifier__penalty': 'l2', 'classifier__solver': 'lbfgs'}
- Repetition 5: {'classifier__C': 10, 'classifier__penalty': 'l2', 'classifier__solver': 'lbfgs'}
-Best CV Scores per Repetition:
- Repetition 1: 0.7100
- Repetition 2: 0.7800
- Repetition 3: 0.6800
- Repetition 4: 0.7000
- Repetition 5: 0.7300
-Classification Reports:
-
---- Repetition 1 ---
-              precision    recall  f1-score   support
-
-           0       0.79      0.55      0.65      4732
-           1       0.62      0.84      0.72      4268
-
-    accuracy                           0.68      9000
-   macro avg       0.71      0.69      0.68      9000
-weighted avg       0.71      0.68      0.68      9000
-
-
---- Repetition 2 ---
-              precision    recall  f1-score   support
-
-           0       0.70      0.94      0.80      4732
-           1       0.89      0.56      0.69      4268
-
-    accuracy                           0.76      9000
-   macro avg       0.80      0.75      0.74      9000
-weighted avg       0.79      0.76      0.75      9000
-
-
---- Repetition 3 ---
-              precision    recall  f1-score   support
-
-           0       0.72      0.86      0.79      4732
-           1       0.80      0.64      0.71      4268
-
-    accuracy                           0.75      9000
-   macro avg       0.76      0.75      0.75      9000
-weighted avg       0.76      0.75      0.75      9000
-
-
---- Repetition 4 ---
-              precision    recall  f1-score   support
-
-           0       0.70      0.91      0.79      4732
-           1       0.85      0.57      0.68      4268
-
-    accuracy                           0.75      9000
-   macro avg       0.78      0.74      0.74      9000
-weighted avg       0.77      0.75      0.74      9000
-
-
---- Repetition 5 ---
-              precision    recall  f1-score   support
-
-           0       0.74      0.85      0.79      4732
-           1       0.80      0.66      0.73      4268
-
-    accuracy                           0.76      9000
-   macro avg       0.77      0.76      0.76      9000
-weighted avg       0.77      0.76      0.76      9000
-
-
--- Sampling Method: stratified --
-Accuracies: [0.7595555555555555, 0.7504444444444445, 0.7685555555555555, 0.7557777777777778, 0.7451111111111111]
-Average Accuracy: 0.7559
-F1 Scores: [0.7219938335046249, 0.6868377021751255, 0.7273917026567204, 0.7230342741935484, 0.7153139736907421]
-Average F1 Score: 0.7149
-Best Parameters per Repetition:
- Repetition 1: {'classifier__C': 10, 'classifier__penalty': 'l2', 'classifier__solver': 'lbfgs'}
- Repetition 2: {'classifier__C': 10, 'classifier__penalty': 'l2', 'classifier__solver': 'lbfgs'}
- Repetition 3: {'classifier__C': 10, 'classifier__penalty': 'l2', 'classifier__solver': 'lbfgs'}
- Repetition 4: {'classifier__C': 10, 'classifier__penalty': 'l2', 'classifier__solver': 'lbfgs'}
- Repetition 5: {'classifier__C': 10, 'classifier__penalty': 'l2', 'classifier__solver': 'lbfgs'}
-Best CV Scores per Repetition:
- Repetition 1: 0.7200
- Repetition 2: 0.7700
- Repetition 3: 0.7400
- Repetition 4: 0.7400
- Repetition 5: 0.7800
-Classification Reports:
-
---- Repetition 1 ---
-              precision    recall  f1-score   support
-
-           0       0.73      0.85      0.79      4732
-           1       0.80      0.66      0.72      4268
-
-    accuracy                           0.76      9000
-   macro avg       0.77      0.75      0.76      9000
-weighted avg       0.76      0.76      0.76      9000
-
-
---- Repetition 2 ---
-              precision    recall  f1-score   support
-
-           0       0.70      0.91      0.79      4732
-           1       0.85      0.58      0.69      4268
-
-    accuracy                           0.75      9000
-   macro avg       0.78      0.74      0.74      9000
-weighted avg       0.77      0.75      0.74      9000
-
-
---- Repetition 3 ---
-              precision    recall  f1-score   support
-
-           0       0.74      0.87      0.80      4732
-           1       0.82      0.65      0.73      4268
-
-    accuracy                           0.77      9000
-   macro avg       0.78      0.76      0.76      9000
-weighted avg       0.78      0.77      0.76      9000
-
-
---- Repetition 4 ---
-              precision    recall  f1-score   support
-
-           0       0.74      0.83      0.78      4732
-           1       0.78      0.67      0.72      4268
-
-    accuracy                           0.76      9000
-   macro avg       0.76      0.75      0.75      9000
-weighted avg       0.76      0.76      0.75      9000
-
-
---- Repetition 5 ---
-              precision    recall  f1-score   support
-
-           0       0.73      0.81      0.77      4732
-           1       0.76      0.68      0.72      4268
-
-    accuracy                           0.75      9000
-   macro avg       0.75      0.74      0.74      9000
-weighted avg       0.75      0.75      0.74      9000
-
-
--- Sampling Method: cluster --
-Accuracies: [0.6815555555555556, 0.6657777777777778, 0.7476666666666667, 0.758, 0.7668888888888888]
-Average Accuracy: 0.7240
-F1 Scores: [0.6701197053406999, 0.6732565718009993, 0.7183430484931167, 0.7289021657953697, 0.7264667535853977]
-Average F1 Score: 0.7034
-Best Parameters per Repetition:
- Repetition 1: {'classifier__C': 0.1, 'classifier__penalty': 'l2', 'classifier__solver': 'lbfgs'}
- Repetition 2: {'classifier__C': 0.1, 'classifier__penalty': 'l2', 'classifier__solver': 'lbfgs'}
- Repetition 3: {'classifier__C': 10, 'classifier__penalty': 'l2', 'classifier__solver': 'lbfgs'}
- Repetition 4: {'classifier__C': 10, 'classifier__penalty': 'l2', 'classifier__solver': 'lbfgs'}
- Repetition 5: {'classifier__C': 10, 'classifier__penalty': 'l2', 'classifier__solver': 'lbfgs'}
-Best CV Scores per Repetition:
- Repetition 1: 0.6700
- Repetition 2: 0.7200
- Repetition 3: 0.8100
- Repetition 4: 0.6900
- Repetition 5: 0.6800
-Classification Reports:
-
---- Repetition 1 ---
-              precision    recall  f1-score   support
-
-           0       0.70      0.68      0.69      4732
-           1       0.66      0.68      0.67      4268
-
-    accuracy                           0.68      9000
-   macro avg       0.68      0.68      0.68      9000
-weighted avg       0.68      0.68      0.68      9000
-
-
---- Repetition 2 ---
-              precision    recall  f1-score   support
-
-           0       0.71      0.61      0.66      4732
-           1       0.63      0.73      0.67      4268
-
-    accuracy                           0.67      9000
-   macro avg       0.67      0.67      0.67      9000
-weighted avg       0.67      0.67      0.67      9000
-
-
---- Repetition 3 ---
-              precision    recall  f1-score   support
-
-           0       0.74      0.81      0.77      4732
-           1       0.76      0.68      0.72      4268
-
-    accuracy                           0.75      9000
-   macro avg       0.75      0.74      0.74      9000
-weighted avg       0.75      0.75      0.75      9000
-
-
---- Repetition 4 ---
-              precision    recall  f1-score   support
-
-           0       0.74      0.82      0.78      4732
-           1       0.78      0.69      0.73      4268
-
-    accuracy                           0.76      9000
-   macro avg       0.76      0.75      0.76      9000
-weighted avg       0.76      0.76      0.76      9000
-
-
---- Repetition 5 ---
-              precision    recall  f1-score   support
-
-           0       0.74      0.87      0.80      4732
-           1       0.82      0.65      0.73      4268
-
-    accuracy                           0.77      9000
-   macro avg       0.78      0.76      0.76      9000
-weighted avg       0.77      0.77      0.76      9000
-
-
--- Sampling Method: edit_distance --
-Accuracies: [0.5657777777777778]
-Average Accuracy: 0.5658
-F1 Scores: [0.5163366336633664]
-Average F1 Score: 0.5163
-Best Parameters per Repetition:
- Repetition 1: {'classifier__C': 0.1, 'classifier__penalty': 'l2', 'classifier__solver': 'lbfgs'}
-Best CV Scores per Repetition:
- Repetition 1: 0.8000
-Classification Reports:
-
---- Repetition 1 ---
-              precision    recall  f1-score   support
-
-           0       0.58      0.64      0.61      4732
-           1       0.55      0.49      0.52      4268
-
-    accuracy                           0.57      9000
-   macro avg       0.56      0.56      0.56      9000
-weighted avg       0.56      0.57      0.56      9000
-
-
--- Sampling Method: cosine_similarity --
-Accuracies: [0.647]
-Average Accuracy: 0.6470
-F1 Scores: [0.6677820767541567]
-Average F1 Score: 0.6678
-Best Parameters per Repetition:
- Repetition 1: {'classifier__C': 0.1, 'classifier__penalty': 'l2', 'classifier__solver': 'lbfgs'}
-Best CV Scores per Repetition:
- Repetition 1: 0.7200
-Classification Reports:
-
---- Repetition 1 ---
-              precision    recall  f1-score   support
-
-           0       0.71      0.56      0.62      4732
-           1       0.60      0.75      0.67      4268
-
-    accuracy                           0.65      9000
-   macro avg       0.66      0.65      0.65      9000
-weighted avg       0.66      0.65      0.64      9000
-
-
--- Sampling Method: jaccard_distance --
-Accuracies: [0.6336666666666667]
-Average Accuracy: 0.6337
-F1 Scores: [0.6458266194005801]
-Average F1 Score: 0.6458
-Best Parameters per Repetition:
- Repetition 1: {'classifier__C': 0.1, 'classifier__penalty': 'l2', 'classifier__solver': 'lbfgs'}
-Best CV Scores per Repetition:
- Repetition 1: 0.6900
-Classification Reports:
-
---- Repetition 1 ---
-              precision    recall  f1-score   support
-
-           0       0.68      0.57      0.62      4732
-           1       0.60      0.70      0.65      4268
-
-    accuracy                           0.63      9000
-   macro avg       0.64      0.64      0.63      9000
-weighted avg       0.64      0.63      0.63      9000
-
-
--- Sampling Method: embedding_euclidean_distance --
-Accuracies: [0.737]
-Average Accuracy: 0.7370
-F1 Scores: [0.667041778027852]
-Average F1 Score: 0.6670
-Best Parameters per Repetition:
- Repetition 1: {'classifier__C': 10, 'classifier__penalty': 'l2', 'classifier__solver': 'lbfgs'}
-Best CV Scores per Repetition:
- Repetition 1: 0.7400
-Classification Reports:
-
---- Repetition 1 ---
-              precision    recall  f1-score   support
-
-           0       0.69      0.90      0.78      4732
-           1       0.83      0.56      0.67      4268
-
-    accuracy                           0.74      9000
-   macro avg       0.76      0.73      0.72      9000
-weighted avg       0.76      0.74      0.73      9000
-
-'''
+    # Active Learning Results
+    if 'active_learning' in methods:
+        al_metrics = methods['active_learning']
+        print(f"\n-- Active Learning --")
+        print(f"Accuracies: {al_metrics['accuracies']}")
+        print(f"Average Accuracy: {al_metrics['average_accuracy']:.4f}")
+        print(f"F1 Scores: {al_metrics['f1_scores']}")
+        print(f"Average F1 Score: {al_metrics['average_f1_score']:.4f}")
+        print("Classification Reports:")
+        for i, report in enumerate(al_metrics['classification_reports'], 1):
+            print(f"\n--- Active Learning Iteration {i} ---")
+            print(report)
