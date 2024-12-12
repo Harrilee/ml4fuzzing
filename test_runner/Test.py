@@ -7,7 +7,7 @@ import concurrent.futures
 
 class TestCase:
 
-    IGNORE_TRACE_FILENAME = ["<frozen importlib._bootstrap", "Python3.",  "Python/", "/final-project/fuzz_test/"]
+    IGNORE_TRACE_FILENAME = ["_bootstrap", "Python3.",  "Python/", "/fuzz_test/"]
     ROOT_DIR = "/sut"
 
     def __init__(self, _id, _input, test_suite):
@@ -43,8 +43,9 @@ class TestCase:
             file_name = code.co_filename
             file_name = file_name[file_name.find(TestCase.ROOT_DIR) + len(TestCase.ROOT_DIR):]
             if not any([ignore in file_name for ignore in self.IGNORE_TRACE_FILENAME]):
+                log = f"{func_line_no} | {event} | {func_name} | {file_name}"
                 self.exec_trace.append(
-                    f"{func_line_no} | {event} | {func_name} | {file_name}"
+                    log
                 )
                 return exec_trace_tracker
             else:  # to stop the trace
@@ -57,12 +58,25 @@ class TestCase:
         The core logic of the test case.
         :return: the output of the test case
         """
+        return None, None
+
+    def before_run(self):
+        """
+        This is not traced.
+        """
         pass
 
+    def after_run(self):
+        """
+        This is not traced.
+        """
+        pass
     def test(self):
+        self.before_run()
         self.setup_exec_trace_tracker()
         self.output, noErr = self.run()
         sys.settrace(None)
+        self.after_run()
         return noErr
 
 
@@ -78,17 +92,17 @@ class TestSuite:
 
         self.__load_test_cases()
 
-    def test(self):
+    def test(self, size=10000):
         print("Running test cases...")
         errCnt = 0
-        for test_case in tqdm(self.test_cases):
-            try:
-                noErr = test_case.test()
-                if not noErr:
-                    errCnt += 1
-            except Exception as e:
-                test_case.error = str(e)
-                print("Error in test case", test_case.id, test_case.input)
+        for test_case in tqdm(self.test_cases[:size]):
+            # try:
+            noErr = test_case.test()
+            if not noErr:
+                errCnt += 1
+            # except Exception as e:
+            #     test_case.error = str(e)
+            #     print("Error in test case", test_case.id, test_case.input)
             self.logger.log(test_case, f"{self.branch_name}_{self.test_name}_{test_case.id}.json")
         print(f"Total errors: {errCnt}")
 
