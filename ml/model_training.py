@@ -8,6 +8,7 @@ from sklearn.svm import SVC
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, accuracy_score
+from feature_extraction import feat_extract_tfidf
 import joblib
 
 pd.set_option('mode.chained_assignment', None)
@@ -120,15 +121,19 @@ class MutationModelTrainer:
         y = df['verdict'].apply(lambda x: 1 if x.lower() == 'pass' else 0)
         X = df[['exec_trace']]
 
-        X_train_tfidf, y_train_tfidf, X_test_tfidf, y_test_tfidf = get_training_dataset(X, y, 'tfidf')
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42, stratify=y
+        )
+
+        X_train_tfidf, X_test_tfidf = feat_extract_tfidf(X_train, X_test)
 
         # Train the model
         for classifier in self.classifier_list:
             # grid_search = train_model(classifier, X_train_tfidf, y_train_tfidf)
-            classifier.fit(X_train_tfidf, y_train_tfidf)
+            classifier.fit(X_train_tfidf, y_train)
 
             # Evaluate the best model
-            evaluation = evaluate_model(classifier, X_test_tfidf, y_test_tfidf)
+            evaluation = evaluate_model(classifier, X_test_tfidf, y_test)
 
             # Save the best model
             model_name = classifier.__class__.__name__
