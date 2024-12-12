@@ -10,6 +10,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from infra.pipeline.data_picker.random_picker import RandomDataPicker
 from infra.pipeline.feature_transformer.word_count_transformer import WordCountTransformer
+from infra.pipeline.feature_transformer.tfidf_trace_transformer import TFIDFTraceTransformer
+from infra.pipeline.feature_transformer.boolean_matrix_transformer import BooleanTraceTransformer
 from infra.training.data_loader import DataLoader
 from infra.training.trainer import Trainer
 from infra.pipeline.pipeline_builder import PipelineBuilder

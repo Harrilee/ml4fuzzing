@@ -67,7 +67,7 @@ class Trainer:
         # Calculate metrics
         results = {
             'accuracy': accuracy_score(self.y_test, y_pred),
-            'f1_score': f1_score(self.y_test, y_pred, zero_division=0),
+            'f1_score': f1_score(self.y_test, y_pred, average='macro', zero_division=0),
             'classification_report': classification_report(self.y_test, y_pred)
         }
         
